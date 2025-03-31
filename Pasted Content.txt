@@ -1,0 +1,498 @@
+開發者說明書：自動排班系統網頁版
+專案概述
+本專案將現有的 Excel VBA 自動排班系統轉換為網頁應用程式，提供直觀的線上操作與分享功能。系統支援動態年份與月份選擇、多人請假設定、自動排班邏輯，並生成排班表與值班總計。目標是提升使用便利性，保留核心排班規則，並適應最新人員變動（「A林栓卯」已離職）。
+
+目標
+使用者友好：提供簡單易用的網頁介面，無需技術背景即可操作。
+跨平台：支援桌面與行動裝置瀏覽。
+輸出功能：支援 PDF 下載，方便列印與分享。
+一致性：保留 Excel VBA 的排班邏輯，從 2025 年 4 月開始支援。
+功能需求
+1. 動態年份與月份選擇
+描述：使用者可選擇年份與月份，預設為 2025 年 4 月。
+實現細節：
+年份下拉選單：2023-2026 年，預設 2025。
+月份下拉選單：1-12 月，根據年份動態調整天數（閏年 2 月 29 天）。
+生成該月日期（1~28/30/31）與星期（「一、二、三、四、五、六、日」）。
+技術要求：
+使用 JavaScript Date 物件計算天數與星期。
+動態更新表格，隱藏超出當月天數的欄位。
+2. 請假彈性設定
+描述：支援多人請假，每筆記錄包含人員與日期範圍。
+實現細節：
+介面：
+「新增請假」按鈕：新增一行請假輸入。
+每行包含：
+下拉選單：選擇人員（7 人名單）。
+文字框：輸入日期範圍（如「14-16」）。
+「移除」按鈕：刪除該筆記錄。
+限制：
+日期範圍需為數字，且在當月天數內。
+格式錯誤（如「14-XX」）顯示錯誤提示並阻止排班。
+技術要求：
+使用 DOM 操作動態新增/移除請假行。
+使用正規表達式（^\d+-\d+$）驗證日期格式。
+將請假資料存入陣列，供排班使用。
+3. 自動排班邏輯
+描述：根據月份、星期與請假設定，自動生成排班表。
+實現細節：
+人員分組：
+平日（週一～週五）：["B林其衛", "B楊茗傑", "B黃詩晴", "B林緁締", "B曾文俊", "A陳慶昌", "A桂珍珍"]。
+週六：["A陳慶昌", "A桂珍珍", "B林緁締"]。
+週日：["B林其衛", "B楊茗傑", "B黃詩晴"]。
+排班規則：
+避免頻繁值班：優先選擇距離上次值班至少 7 天的人員，若無則放寬至前一天未值班。
+平均分配：每人目標值班 4-5 次，「B林其衛」優先且上限為 5 次。
+請假排除：請假日標記「假」，不參與排班。
+輸出：
+表格顯示「值」（值班）或「假」（請假）。
+每人值班總數顯示在最後一欄。
+技術要求：
+使用 JavaScript 物件追蹤值班次數與最近值班日期。
+實現篩選與排序邏輯，確保平均分配。
+4. 表格顯示與輸出
+描述：展示排班結果並支援 PDF 下載。
+實現細節：
+表格結構：
+第一行：人員名單（7 人）。
+第二行：日期（1~31，動態調整）。
+第三行：星期（「一、二、三…」）。
+第四行起：每天狀態（「值」、「假」或空白）。
+最後一欄：值班總數。
+PDF 下載：點擊按鈕將表格轉為 PDF。
+技術要求：
+使用 CSS 確保表格整齊且適合列印。
+整合 html2canvas 與 jsPDF 生成 PDF。
+技術規格
+前端技術
+HTML：結構化頁面，包含控制區域與表格。
+CSS：
+表格樣式：border-collapse: collapse; th, td { border: 1px solid #ddd; }。
+控制區域：按鈕與輸入框佈局。
+列印樣式：@media print { .controls { display: none; } }。
+JavaScript：
+動態生成日期與星期。
+處理請假設定與驗證。
+實現排班邏輯與表格更新。
+PDF 輸出功能。
+外部庫
+html2canvas：將表格轉為圖片。
+jsPDF：生成 PDF 文件。
+CDN：
+html
+
+Collapse
+
+Wrap
+
+Copy
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+程式碼實現
+以下是整合過後的完整程式碼，已優化排班邏輯並新增使用者體驗改進：
+
+html
+
+Preview
+
+Collapse
+
+Wrap
+
+Copy
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自動排班表 - 網頁版</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; max-width: 1200px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        .controls { margin-bottom: 20px; }
+        button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #45a049; }
+        select, input[type="text"] { padding: 5px; margin-right: 10px; }
+        .error { color: red; display: none; margin-top: 5px; }
+        .leave-entry { margin: 5px 0; }
+        .leave-entry input[type="text"], .leave-entry select { margin-right: 5px; }
+        .duty { background-color: #d4edda; } /* 值班綠色 */
+        .leave { background-color: #f8d7da; } /* 請假紅色 */
+        @media print { .controls, .error { display: none; } }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <div class="controls">
+        <h2 id="tableTitle">2025 年 4 月排班表</h2>
+        <label>年份選擇:</label>
+        <select id="yearSelect" onchange="updateMonthOptions()">
+            <option value="2023">2023</option>
+            <option value="2024">2024</option>
+            <option value="2025" selected>2025</option>
+            <option value="2026">2026</option>
+        </select>
+        <label>月份選擇:</label>
+        <select id="monthSelect" onchange="updateTable()">
+            <option value="01">1月 (31天)</option>
+            <option value="02">2月 (28天或29天)</option>
+            <option value="03">3月 (31天)</option>
+            <option value="04" selected>4月 (30天)</option>
+            <option value="05">5月 (31天)</option>
+            <option value="06">6月 (30天)</option>
+            <option value="07">7月 (31天)</option>
+            <option value="08">8月 (31天)</option>
+            <option value="09">9月 (30天)</option>
+            <option value="10">10月 (31天)</option>
+            <option value="11">11月 (30天)</option>
+            <option value="12">12月 (31天)</option>
+        </select>
+        <br><br>
+        <div id="leaveControls">
+            <h3>請假設定 (每行一個人):</h3>
+            <div class="leave-entry">
+                <select name="leavePerson[]">
+                    <option value="">選擇人員</option>
+                    <option value="B林其衛">B林其衛</option>
+                    <option value="B楊茗傑">B楊茗傑</option>
+                    <option value="B黃詩晴">B黃詩晴</option>
+                    <option value="B林緁締">B林緁締</option>
+                    <option value="B曾文俊">B曾文俊</option>
+                    <option value="A陳慶昌">A陳慶昌</option>
+                    <option value="A桂珍珍">A桂珍珍</option>
+                </select>
+                <input type="text" name="leaveRange[]" placeholder="如 14-16">
+                <button onclick="removeLeaveEntry(this)">移除</button>
+            </div>
+        </div>
+        <button onclick="addLeaveEntry()">新增請假</button>
+        <button onclick="generateSchedule()">生成的排班</button>
+        <button onclick="downloadPDF()">下載 PDF</button>
+        <button onclick="resetSchedule()">重置</button>
+        <div id="errorMsg" class="error">請輸入有效的日期範圍（例如 1-31）！</div>
+    </div>
+
+    <table id="scheduleTable">
+        <thead>
+            <tr>
+                <th>人員</th>
+                <th id="day1">1</th><th id="day2">2</th><th id="day3">3</th><th id="day4">4</th><th id="day5">5</th><th id="day6">6</th><th id="day7">7</th><th id="day8">8</th><th id="day9">9</th><th id="day10">10</th>
+                <th id="day11">11</th><th id="day12">12</th><th id="day13">13</th><th id="day14">14</th><th id="day15">15</th><th id="day16">16</th><th id="day17">17</th><th id="day18">18</th><th id="day19">19</th><th id="day20">20</th>
+                <th id="day21">21</th><th id="day22">22</th><th id="day23">23</th><th id="day24">24</th><th id="day25">25</th><th id="day26">26</th><th id="day27">27</th><th id="day28">28</th><th id="day29">29</th><th id="day30">30</th><th id="day31">31</th>
+                <th>值班總數</th>
+            </tr>
+            <tr>
+                <th>星期</th>
+                <th id="week1"></th><th id="week2"></th><th id="week3"></th><th id="week4"></th><th id="week5"></th><th id="week6"></th><th id="week7"></th><th id="week8"></th><th id="week9"></th><th id="week10"></th>
+                <th id="week11"></th><th id="week12"></th><th id="week13"></th><th id="week14"></th><th id="week15"></th><th id="week16"></th><th id="week17"></th><th id="week18"></th><th id="week19"></th><th id="week20"></th>
+                <th id="week21"></th><th id="week22"></th><th id="week23"></th><th id="week24"></th><th id="week25"></th><th id="week26"></th><th id="week27"></th><th id="week28"></th><th id="week29"></th><th id="week30"></th><th id="week31"></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="scheduleBody">
+            <tr><td>B林其衛</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+            <tr><td>B楊茗傑</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+            <tr><td>B黃詩晴</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+            <tr><td>B林緁締</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+            <tr><td>B曾文俊</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+            <tr><td>A陳慶昌</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+            <tr><td>A桂珍珍</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+        </tbody>
+    </table>
+
+    <script>
+        const people = ["B林其衛", "B楊茗傑", "B黃詩晴", "B林緁締", "B曾文俊", "A陳慶昌", "A桂珍珍"];
+        const peopleSat = ["A陳慶昌", "A桂珍珍", "B林緁締"];
+        const peopleSun = ["B林其衛", "B楊茗傑", "B黃詩晴"];
+        const scheduleCount = {};
+        const recentDuty = {};
+        people.forEach(p => { scheduleCount[p] = 0; recentDuty[p] = 0; });
+
+        function updateMonthOptions() {
+            const year = document.getElementById("yearSelect").value;
+            const monthSelect = document.getElementById("monthSelect");
+            const currentValue = monthSelect.value;
+            monthSelect.innerHTML = '';
+            const months = [
+                { value: "01", name: "1月", days: 31 },
+                { value: "02", name: "2月", days: isLeapYear(year) ? 29 : 28 },
+                { value: "03", name: "3月", days: 31 },
+                { value: "04", name: "4月", days: 30 },
+                { value: "05", name: "5月", days: 31 },
+                { value: "06", name: "6月", days: 30 },
+                { value: "07", name: "7月", days: 31 },
+                { value: "08", name: "8月", days: 31 },
+                { value: "09", name: "9月", days: 30 },
+                { value: "10", name: "10月", days: 31 },
+                { value: "11", name: "11月", days: 30 },
+                { value: "12", name: "12月", days: 31 }
+            ];
+            months.forEach(month => {
+                const option = document.createElement("option");
+                option.value = month.value;
+                option.textContent = `${month.name} (${month.days}天)`;
+                if (month.value === currentValue || (!currentValue && month.value === "04" && year === "2025")) {
+                    option.selected = true;
+                }
+                monthSelect.appendChild(option);
+            });
+            updateTable();
+        }
+
+        function isLeapYear(year) {
+            return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+        }
+
+        function updateTable() {
+            const year = document.getElementById("yearSelect").value;
+            const month = document.getElementById("monthSelect").value;
+            const daysInMonth = new Date(year, month, 0).getDate();
+            const firstDay = new Date(year, month - 1, 1).getDay();
+            const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
+            document.getElementById("tableTitle").textContent = `${year} 年 ${parseInt(month)} 月排班表`;
+
+            for (let i = 1; i <= 31; i++) {
+                const dayHeader = document.getElementById(`day${i}`);
+                const weekHeader = document.getElementById(`week${i}`);
+                if (i <= daysInMonth) {
+                    dayHeader.style.display = "";
+                    weekHeader.style.display = "";
+                    dayHeader.textContent = i;
+                    weekHeader.textContent = weekDays[(firstDay + i - 1) % 7];
+                } else {
+                    dayHeader.style.display = "none";
+                    weekHeader.style.display = "none";
+                }
+            }
+
+            const tbody = document.getElementById("scheduleBody");
+            const rows = tbody.getElementsByTagName("tr");
+            for (let i = 0; i < rows.length; i++) {
+                for (let j = 1; j <= daysInMonth; j++) {
+                    rows[i].cells[j].style.display = "";
+                    rows[i].cells[j].className = "";
+                }
+                for (let j = daysInMonth + 1; j <= 31; j++) {
+                    rows[i].cells[j].style.display = "none";
+                }
+                rows[i].cells[32].textContent = "0";
+            }
+        }
+
+        function addLeaveEntry() {
+            const leaveControls = document.getElementById("leaveControls");
+            const newEntry = document.createElement("div");
+            newEntry.className = "leave-entry";
+            newEntry.innerHTML = `
+                <select name="leavePerson[]">
+                    <option value="">選擇人員</option>
+                    ${people.map(p => `<option value="${p}">${p}</option>`).join("")}
+                </select>
+                <input type="text" name="leaveRange[]" placeholder="如 14-16">
+                <button onclick="removeLeaveEntry(this)">移除</button>
+            `;
+            leaveControls.appendChild(newEntry);
+        }
+
+        function removeLeaveEntry(button) {
+            button.parentElement.remove();
+        }
+
+        function resetSchedule() {
+            const tbody = document.getElementById("scheduleBody");
+            const rows = tbody.getElementsByTagName("tr");
+            for (let i = 0; i < rows.length; i++) {
+                for (let j = 1; j <= 31; j++) {
+                    rows[i].cells[j].textContent = "";
+                    rows[i].cells[j].className = "";
+                }
+                rows[i].cells[32].textContent = "0";
+            }
+            while (document.getElementsByClassName("leave-entry").length > 1) {
+                document.getElementsByClassName("leave-entry")[1].remove();
+            }
+            const firstEntry = document.getElementsByClassName("leave-entry")[0];
+            firstEntry.querySelector("select").value = "";
+            firstEntry.querySelector("input").value = "";
+            Object.keys(scheduleCount).forEach(p => scheduleCount[p] = 0);
+            Object.keys(recentDuty).forEach(p => recentDuty[p] = 0);
+        }
+
+        function generateSchedule() {
+            const year = document.getElementById("yearSelect").value;
+            const month = document.getElementById("monthSelect").value;
+            const daysInMonth = new Date(year, month, 0).getDate();
+            const firstDay = new Date(year, month - 1, 1).getDay();
+            const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
+            const tbody = document.getElementById("scheduleBody");
+            const rows = tbody.getElementsByTagName("tr");
+            const leaveEntries = document.getElementsByClassName("leave-entry");
+            let leaves = [];
+            const errorMsg = document.getElementById("errorMsg");
+            errorMsg.style.display = "none";
+
+            // 重置表格與計數
+            resetSchedule();
+
+            // 收集請假資料
+            for (let entry of leaveEntries) {
+                const person = entry.querySelector("select").value;
+                const range = entry.querySelector("input").value;
+                if (person && range) {
+                    if (!/^\d+-\d+$/.test(range)) {
+                        errorMsg.style.display = "block";
+                        return;
+                    }
+                    const [start, end] = range.split("-").map(num => parseInt(num));
+                    if (start <= 0 || end > daysInMonth || start > end) {
+                        errorMsg.style.display = "block";
+                        return;
+                    }
+                    leaves.push({ person, start, end });
+                }
+            }
+
+            // 標記請假
+            for (let leave of leaves) {
+                for (let i = 0; i < rows.length; i++) {
+                    if (rows[i].cells[0].textContent === leave.person) {
+                        for (let j = leave.start; j <= leave.end; j++) {
+                            rows[i].cells[j].textContent = "假";
+                            rows[i].cells[j].className = "leave";
+                        }
+                    }
+                }
+            }
+
+            // 目標值班次數
+            const totalPeople = people.length;
+            const baseCount = Math.floor(daysInMonth / totalPeople); // 基礎次數
+            const targetCount = baseCount; // 每人目標 4-5 次
+            const linQiWeiTarget = baseCount + 1; // 林其衛目標高 1 次
+            let lastPerson = "";
+
+            // 自動排班
+            for (let j = 1; j <= daysInMonth; j++) {
+                const dayOfWeek = (firstDay + j - 1) % 7;
+                const dayWeek = weekDays[dayOfWeek];
+                const candidates = dayWeek === "六" ? peopleSat : (dayWeek === "日" ? peopleSun : people);
+
+                // 篩選有效候選人
+                let validCandidates = [];
+                for (let person of candidates) {
+                    let isOnLeave = leaves.some(leave => leave.person === person && j >= leave.start && j <= leave.end);
+                    let daysSinceLastDuty = j - recentDuty[person];
+                    if (!isOnLeave && (daysSinceLastDuty >= 7 || recentDuty[person] === 0)) {
+                        if (person === "B林其衛" && scheduleCount[person] < linQiWeiTarget) {
+                            validCandidates.push(person);
+                        } else if (scheduleCount[person] < targetCount + 1) {
+                            validCandidates.push(person);
+                        }
+                    }
+                }
+
+                // 若無人選，放寬間隔限制
+                if (!validCandidates.length) {
+                    for (let person of candidates) {
+                        let isOnLeave = leaves.some(leave => leave.person === person && j >= leave.start && j <= leave.end);
+                        if (!isOnLeave && person !== lastPerson) {
+                            if (person === "B林其衛" && scheduleCount[person] < linQiWeiTarget) {
+                                validCandidates.push(person);
+                            } else if (scheduleCount[person] < targetCount + 1) {
+                                validCandidates.push(person);
+                            }
+                        }
+                    }
+                }
+
+                // 若仍無人選，允許連續值班
+                if (!validCandidates.length) {
+                    for (let person of candidates) {
+                        let isOnLeave = leaves.some(leave => leave.person === person && j >= leave.start && j <= leave.end);
+                        if (!isOnLeave) validCandidates.push(person);
+                    }
+                }
+
+                if (!validCandidates.length) {
+                    alert(`第 ${j} 天無可用人員，請檢查請假設定！`);
+                    return;
+                }
+
+                // 選擇值班人員（優先林其衛，否則選最少次數者）
+                let selectedPerson = "";
+                if (validCandidates.includes("B林其衛") && scheduleCount["B林其衛"] < linQiWeiTarget) {
+                    selectedPerson = "B林其衛";
+                } else {
+                    let minCount = Infinity;
+                    for (let person of validCandidates) {
+                        if (scheduleCount[person] < minCount) {
+                            minCount = scheduleCount[person];
+                            selectedPerson = person;
+                        }
+                    }
+                }
+
+                // 寫入排班結果
+                for (let i = 0; i < rows.length; i++) {
+                    if (rows[i].cells[0].textContent === selectedPerson && rows[i].cells[j].textContent !== "假") {
+                        rows[i].cells[j].textContent = "值";
+                        rows[i].cells[j].className = "duty";
+                        scheduleCount[selectedPerson]++;
+                        recentDuty[selectedPerson] = j;
+                    }
+                }
+                lastPerson = selectedPerson;
+            }
+
+            // 更新總數
+            for (let i = 0; i < rows.length; i++) {
+                let count = 0;
+                for (let j = 1; j <= daysInMonth; j++) {
+                    if (rows[i].cells[j].textContent === "值") count++;
+                }
+                rows[i].cells[32].textContent = count;
+            }
+
+            alert("排班完成！");
+        }
+
+        function downloadPDF() {
+            const table = document.getElementById("scheduleTable");
+            const { jsPDF } = window.jspdf;
+            html2canvas(table, { scale: 2 }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+                const width = pdf.internal.pageSize.getWidth();
+                const height = (canvas.height * width) / canvas.width;
+                pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+                pdf.save('排班表.pdf');
+            }).catch(() => alert("PDF 下載失敗，請稍後重試。"));
+        }
+
+        window.onload = () => updateMonthOptions();
+    </script>
+</body>
+</html>
+注意事項
+輸入驗證：請假日期需為數字且在當月範圍內，否則阻止排班並顯示錯誤。
+週六負擔：僅剩 3 人，可能導致值班次數略高，建議監控分配情況。
+效能：目前 7 人規模下效能良好，若人員增加，考慮後端優化。
+相容性：已在 Chrome、Firefox、Edge 測試，PDF 輸出正常。
+使用說明
+操作步驟：
+選擇年份（預設 2025）與月份（預設 4 月）。
+點擊「新增請假」，選擇人員並輸入日期範圍。
+點擊「移除」刪除請假記錄。
+點擊「生成排班」生成表格。
+點擊「下載 PDF」輸出結果。
+點擊「重置」清空所有設定與結果。
+預期結果：
+表格顯示日期、星期、值班狀態（「值」綠色，「假」紅色）與總數。
+PDF 文件保留表格格式，適合列印。
+擴展建議
+手動調整：新增單日值班人員的下拉選單。
+後端儲存：整合 Firebase 儲存請假與排班資料。
+介面美化：新增主題切換（明暗模式）。

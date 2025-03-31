@@ -1,0 +1,113 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    max-width: 1200px;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+.controls {
+    margin-bottom: 20px;
+}
+
+button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    margin-right: 5px;
+    margin-top: 10px;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+select, input[type="text"] {
+    padding: 5px;
+    margin-right: 10px;
+}
+
+.error {
+    color: red;
+    display: none;
+    margin-top: 5px;
+}
+
+.leave-entry {
+    margin: 5px 0;
+}
+
+.leave-entry input[type="text"], .leave-entry select {
+    margin-right: 5px;
+}
+
+.duty {
+    background-color: #d4edda;  /* 值班綠色 */
+}
+
+.leave {
+    background-color: #f8d7da;  /* 請假紅色 */
+}
+
+@media print {
+    .controls, .error {
+        display: none;
+    }
+}
+
+h2 {
+    color: #333;
+    margin-bottom: 15px;
+}
+
+h3 {
+    color: #555;
+    margin-top: 15px;
+    margin-bottom: 10px;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    body {
+        margin: 10px;
+    }
+    
+    table {
+        font-size: 0.9em;
+    }
+    
+    th, td {
+        padding: 5px;
+    }
+    
+    button {
+        padding: 8px 15px;
+        margin-top: 8px;
+    }
+}
+
+/* 表格行交替顏色 */
+#scheduleBody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+/* 表格頭部強調 */
+thead tr:first-child th {
+    background-color: #e9e9e9;
+    font-weight: bold;
+}

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自動排班表 - 網頁版</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <div class="controls">
+        <h2 id="tableTitle">2025 年 4 月排班表</h2>
+        <label>年份選擇:</label>
+        <select id="yearSelect" onchange="updateMonthOptions()">
+            <option value="2023">2023</option>
+            <option value="2024">2024</option>
+            <option value="2025" selected>2025</option>
+            <option value="2026">2026</option>
+        </select>
+        <label>月份選擇:</label>
+        <select id="monthSelect" onchange="updateTable()">
+            <option value="01">1月 (31天)</option>
+            <option value="02">2月 (28天或29天)</option>
+            <option value="03">3月 (31天)</option>
+            <option value="04" selected>4月 (30天)</option>
+            <option value="05">5月 (31天)</option>
+            <option value="06">6月 (30天)</option>
+            <option value="07">7月 (31天)</option>
+            <option value="08">8月 (31天)</option>
+            <option value="09">9月 (30天)</option>
+            <option value="10">10月 (31天)</option>
+            <option value="11">11月 (30天)</option>
+            <option value="12">12月 (31天)</option>
+        </select>
+        <br><br>
+        <div id="leaveControls">
+            <h3>請假設定 (每行一個人):</h3>
+            <div class="leave-entry">
+                <select name="leavePerson[]">
+                    <option value="">選擇人員</option>
+                    <option value="B林其衛">B林其衛</option>
+                    <option value="B楊茗傑">B楊茗傑</option>
+                    <option value="B黃詩晴">B黃詩晴</option>
+                    <option value="B林緁締">B林緁締</option>
+                    <option value="B曾文俊">B曾文俊</option>
+                    <option value="A陳慶昌">A陳慶昌</option>
+                    <option value="A桂珍珍">A桂珍珍</option>
+                </select>
+                <input type="text" name="leaveRange[]" placeholder="如 14-16">
+                <button onclick="removeLeaveEntry(this)">移除</button>
+            </div>
+        </div>
+        <button onclick="addLeaveEntry()">新增請假</button>
+        <button onclick="generateSchedule()">生成排班</button>
+        <button onclick="downloadPDF()">下載 PDF</button>
+        <button onclick="resetSchedule()">重置</button>
+        <div id="errorMsg" class="error">請輸入有效的日期範圍（例如 1-31）！</div>
+    </div>
+
+    <table id="scheduleTable">
+        <thead>
+            <tr>
+                <th>人員</th>
+                <th id="day1">1</th><th id="day2">2</th><th id="day3">3</th><th id="day4">4</th><th id="day5">5</th><th id="day6">6</th><th id="day7">7</th><th id="day8">8</th><th id="day9">9</th><th id="day10">10</th>
+                <th id="day11">11</th><th id="day12">12</th><th id="day13">13</th><th id="day14">14</th><th id="day15">15</th><th id="day16">16</th><th id="day17">17</th><th id="day18">18</th><th id="day19">19</th><th id="day20">20</th>
+                <th id="day21">21</th><th id="day22">22</th><th id="day23">23</th><th id="day24">24</th><th id="day25">25</th><th id="day26">26</th><th id="day27">27</th><th id="day28">28</th><th id="day29">29</th><th id="day30">30</th><th id="day31">31</th>
+                <th>值班總數</th>
+            </tr>
+            <tr>
+                <th>星期</th>
+                <th id="week1"></th><th id="week2"></th><th id="week3"></th><th id="week4"></th><th id="week5"></th><th id="week6"></th><th id="week7"></th><th id="week8"></th><th id="week9"></th><th id="week10"></th>
+                <th id="week11"></th><th id="week12"></th><th id="week13"></th><th id="week14"></th><th id="week15"></th><th id="week16"></th><th id="week17"></th><th id="week18"></th><th id="week19"></th><th id="week20"></th>
+                <th id="week21"></th><th id="week22"></th><th id="week23"></th><th id="week24"></th><th id="week25"></th><th id="week26"></th><th id="week27"></th><th id="week28"></th><th id="week29"></th><th id="week30"></th><th id="week31"></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="scheduleBody">
+            <tr><td>B林其衛</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+            <tr><td>B楊茗傑</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+            <tr><td>B黃詩晴</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+            <tr><td>B林緁締</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+            <tr><td>B曾文俊</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+            <tr><td>A陳慶昌</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+            <tr><td>A桂珍珍</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0</td></tr>
+        </tbody>
+    </table>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
