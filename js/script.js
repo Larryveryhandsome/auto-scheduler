@@ -1,11 +1,10 @@
 // 定義人員資料
-const people = ["A林其衛", "A黃詩晴", "A楊茗傑", "B林緁締", "B曾文俊", "B桂珍珍"];
-const peopleSat = []; // 週六不排班
-const peopleSun = []; // 週日不排班
+const people = ["林其衛", "黃詩晴", "楊茗傑", "林緁締", "曾文俊", "桂珍珍"];
+const peopleSun = ["林其衛"]; // 週日固定林其衛
 const scheduleCount = {};
 const recentDuty = {};
 const maxDutyPerWeek = {
-    "B曾文俊": 1
+    "曾文俊": 1
 };
 people.forEach(p => { 
     scheduleCount[p] = 0; 
@@ -132,161 +131,156 @@ function resetSchedule() {
 
 // 生成排班表
 function generateSchedule() {
-    const year = document.getElementById("yearSelect").value;
-    const month = document.getElementById("monthSelect").value;
+    const year = parseInt(document.getElementById('year').select2('data')[0].text);
+    const month = parseInt(document.getElementById('month').select2('data')[0].text);
     const daysInMonth = new Date(year, month, 0).getDate();
-    const firstDay = new Date(year, month - 1, 1).getDay();
-    const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
-    const tbody = document.getElementById("scheduleBody");
-    const rows = tbody.getElementsByTagName("tr");
-    const leaveEntries = document.getElementsByClassName("leave-entry");
-    let leaves = [];
-    const errorMsg = document.getElementById("errorMsg");
-    errorMsg.style.display = "none";
-    let lastPerson = "";
+    const schedule = {};
+    const dutyCount = {};
+    const lastDutyDay = {};
 
-    // 重置表格與計數
-    resetSchedule();
+    // 初始化值班次數和最後值班日期
+    people.forEach(person => {
+        dutyCount[person] = 0;
+        lastDutyDay[person] = 0;
+    });
 
-    // 收集請假資料
-    for (let entry of leaveEntries) {
-        const person = entry.querySelector("select").value;
-        const range = entry.querySelector("input").value;
-        if (person && range) {
-            if (!/^\d+-\d+$/.test(range)) {
-                errorMsg.style.display = "block";
-                return;
-            }
-            const [start, end] = range.split("-").map(num => parseInt(num));
-            if (start <= 0 || end > daysInMonth || start > end) {
-                errorMsg.style.display = "block";
-                return;
-            }
-            leaves.push({ person, start, end });
-        }
-    }
+    // 取得請假資料
+    const leaveData = {};
+    people.forEach(person => {
+        const leaveDays = document.getElementById(`leave_${person}`).value;
+        leaveData[person] = leaveDays ? leaveDays.split(',').map(day => parseInt(day.trim())) : [];
+    });
 
-    // 標記請假
-    for (let leave of leaves) {
-        for (let i = 0; i < rows.length; i++) {
-            if (rows[i].cells[0].textContent === leave.person) {
-                for (let j = leave.start; j <= leave.end; j++) {
-                    rows[i].cells[j].textContent = "假";
-                    rows[i].cells[j].className = "leave";
-                }
-            }
-        }
-    }
+    // 為每一天安排值班人員
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month - 1, day);
+        const dayOfWeek = date.getDay(); // 0 是週日，6 是週六
 
-    // 目標值班次數
-    const workingDays = Array.from({length: daysInMonth}, (_, i) => {
-        const day = (firstDay + i) % 7;
-        return day !== 0 && day !== 6; // 排除週六日
-    }).filter(Boolean).length;
-    
-    const targetCount = Math.ceil(workingDays / people.length);
-
-    // 自動排班
-    for (let j = 1; j <= daysInMonth; j++) {
-        const dayOfWeek = (firstDay + j - 1) % 7;
-        const dayWeek = weekDays[dayOfWeek];
-        
-        // 週六日不排班
-        if (dayWeek === "六" || dayWeek === "日") {
+        // 週日固定由林其衛值班
+        if (dayOfWeek === 0) {
+            schedule[day] = "林其衛";
+            dutyCount["林其衛"]++;
+            lastDutyDay["林其衛"] = day;
             continue;
         }
 
-        // 篩選有效候選人
-        let validCandidates = [];
-        for (let person of people) {
-            let isOnLeave = leaves.some(leave => leave.person === person && j >= leave.start && j <= leave.end);
-            let daysSinceLastDuty = j - recentDuty[person];
+        // 週一至週六正常排班
+        let availablePeople = people.filter(person => {
+            // 檢查是否請假
+            if (leaveData[person].includes(day)) return false;
             
-            // 檢查周排班限制
-            const weekStart = j - ((firstDay + j - 1) % 7);
-            const weekEnd = weekStart + 6;
-            const weeklyDutyCount = Array.from({length: 7}, (_, i) => weekStart + i)
-                .filter(day => day >= 1 && day <= daysInMonth)
-                .filter(day => {
-                    const row = Array.from(rows).find(r => r.cells[0].textContent === person);
-                    return row && row.cells[day].textContent === "值";
-                }).length;
-
-            const isWithinWeeklyLimit = person === "B曾文俊" ? weeklyDutyCount < 1 : true;
-
-            if (!isOnLeave && (daysSinceLastDuty >= 7 || recentDuty[person] === 0) && isWithinWeeklyLimit) {
-                if (scheduleCount[person] < targetCount) {
-                    validCandidates.push(person);
-                }
-            }
-        }
-
-        // 若無人選，放寬間隔限制
-        if (!validCandidates.length) {
-            for (let person of people) {
-                let isOnLeave = leaves.some(leave => leave.person === person && j >= leave.start && j <= leave.end);
-                const weekStart = j - ((firstDay + j - 1) % 7);
+            // 檢查是否在7天內值過班
+            if (lastDutyDay[person] > 0 && (day - lastDutyDay[person]) < 7) return false;
+            
+            // 曾文俊每週最多值班一次
+            if (person === "曾文俊") {
+                const weekStart = day - dayOfWeek;
                 const weekEnd = weekStart + 6;
-                const weeklyDutyCount = Array.from({length: 7}, (_, i) => weekStart + i)
-                    .filter(day => day >= 1 && day <= daysInMonth)
-                    .filter(day => {
-                        const row = Array.from(rows).find(r => r.cells[0].textContent === person);
-                        return row && row.cells[day].textContent === "值";
-                    }).length;
-
-                const isWithinWeeklyLimit = person === "B曾文俊" ? weeklyDutyCount < 1 : true;
-
-                if (!isOnLeave && person !== lastPerson && isWithinWeeklyLimit) {
-                    validCandidates.push(person);
+                for (let d = weekStart; d <= Math.min(weekEnd, day); d++) {
+                    if (d > 0 && schedule[d] === "曾文俊") return false;
                 }
             }
-        }
+            
+            return true;
+        });
 
-        if (!validCandidates.length) {
-            alert(`第 ${j} 天無可用人員，請檢查排班規則！`);
-            return;
-        }
+        // 按值班次數排序，優先選擇值班次數較少的人
+        availablePeople.sort((a, b) => dutyCount[a] - dutyCount[b]);
 
-        // 選擇值班人員
-        let selectedPerson = "";
-        let minCount = Infinity;
-        for (let person of validCandidates) {
-            if (scheduleCount[person] < minCount) {
-                minCount = scheduleCount[person];
-                selectedPerson = person;
-            }
-        }
-
-        // 寫入排班結果
-        for (let i = 0; i < rows.length; i++) {
-            if (rows[i].cells[0].textContent === selectedPerson) {
-                rows[i].cells[j].textContent = "值";
-                rows[i].cells[j].className = "duty";
-                scheduleCount[selectedPerson]++;
-                recentDuty[selectedPerson] = j;
-                lastPerson = selectedPerson;
-                break;
-            }
+        if (availablePeople.length > 0) {
+            const selectedPerson = availablePeople[0];
+            schedule[day] = selectedPerson;
+            dutyCount[selectedPerson]++;
+            lastDutyDay[selectedPerson] = day;
+        } else {
+            schedule[day] = "無人可值班";
         }
     }
 
-    // 更新總數
+    // 更新表格
+    updateTable(schedule, year, month);
+}
+
+// 初始化拖放功能
+function initializeDragAndDrop() {
+    const cells = document.querySelectorAll('#scheduleBody td:not(:first-child):not(:last-child)');
+    
+    cells.forEach(cell => {
+        cell.classList.add('duty-cell');
+        
+        cell.addEventListener('dragstart', handleDragStart);
+        cell.addEventListener('dragend', handleDragEnd);
+        cell.addEventListener('dragover', handleDragOver);
+        cell.addEventListener('drop', handleDrop);
+        cell.setAttribute('draggable', 'true');
+    });
+}
+
+function handleDragStart(e) {
+    if (!e.target.textContent) return;
+    
+    e.target.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', e.target.textContent);
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+    document.querySelectorAll('.duty-cell').forEach(cell => {
+        cell.classList.remove('droppable');
+    });
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.target.classList.add('droppable');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    const sourceContent = e.dataTransfer.getData('text/plain');
+    const targetContent = e.target.textContent;
+    
+    // 交換值班
+    if (sourceContent && e.target.classList.contains('duty-cell')) {
+        const sourceCell = document.querySelector('.dragging');
+        if (sourceCell) {
+            sourceCell.textContent = targetContent;
+            e.target.textContent = sourceContent;
+            updateDutyCounts();
+        }
+    }
+    
+    e.target.classList.remove('droppable');
+}
+
+// 更新值班次數
+function updateDutyCounts() {
+    const rows = document.getElementById('scheduleBody').getElementsByTagName('tr');
     for (let i = 0; i < rows.length; i++) {
         let count = 0;
-        for (let j = 1; j <= daysInMonth; j++) {
-            if (rows[i].cells[j].textContent === "值") count++;
+        for (let j = 1; j <= 31; j++) {
+            if (rows[i].cells[j].textContent === '值') count++;
         }
         rows[i].cells[32].textContent = count;
     }
-
-    alert("排班完成！");
 }
 
-// 下載PDF
+// 更新下載PDF功能以包含備註
 function downloadPDF() {
-    const table = document.getElementById("scheduleTable");
+    const content = document.createElement('div');
+    content.appendChild(document.getElementById('scheduleTable').cloneNode(true));
+    
+    const notesSection = document.createElement('div');
+    notesSection.className = 'notes-section';
+    notesSection.innerHTML = `
+        <h3>激勵備註</h3>
+        <p style="font-size: 20px; margin-top: 10px;">${document.getElementById('motivationalNotes').value}</p>
+    `;
+    content.appendChild(notesSection);
+    
     const { jsPDF } = window.jspdf;
-    html2canvas(table, { scale: 2 }).then(canvas => {
+    html2canvas(content, { scale: 2 }).then(canvas => {
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
         const width = pdf.internal.pageSize.getWidth();
@@ -297,4 +291,7 @@ function downloadPDF() {
 }
 
 // 頁面載入時初始化
-window.onload = () => updateMonthOptions();
+window.onload = () => {
+    updateMonthOptions();
+    initializeDragAndDrop();
+};
