@@ -9,6 +9,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
+    <!-- 操作說明按鈕 -->
+    <button class="help-button" onclick="showHelp()">操作說明</button>
+
+    <!-- 說明視窗 -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeHelp()">&times;</span>
+            <h1>黎明小巢值班表系統 - 操作說明</h1>
+            <div id="helpContent"></div>
+        </div>
+    </div>
+
     <h1 class="main-title">黎明小巢值班表</h1>
     
     <div class="controls">

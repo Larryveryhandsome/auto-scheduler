@@ -389,6 +389,91 @@ function downloadPDF() {
     }).catch(() => alert("PDF 下載失敗，請稍後重試。"));
 }
 
+// 顯示操作說明
+function showHelp() {
+    const modal = document.getElementById('helpModal');
+    const helpContent = document.getElementById('helpContent');
+    
+    // 操作說明內容
+    const helpHTML = `
+        <h2>功能說明</h2>
+        <h3>基本功能</h3>
+        <ul>
+            <li><strong>排班時間選擇</strong>
+                <ul>
+                    <li>年份選擇：2023-2026年</li>
+                    <li>月份選擇：1-12月，自動顯示每月天數</li>
+                </ul>
+            </li>
+            <li><strong>人員管理</strong>
+                <ul>
+                    <li>固定人員名單：林其衛、楊茗傑、黃詩晴、林緁締、曾文俊、桂珍珍</li>
+                    <li>每人值班次數自動統計</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h3>排班規則</h3>
+        <ul>
+            <li>週一至週六正常排班</li>
+            <li>林其衛固定週日值班</li>
+            <li>曾文俊每週最多值班一次</li>
+            <li>其他人員每週最多值班兩次</li>
+        </ul>
+
+        <h3>特殊功能</h3>
+        <ul>
+            <li><strong>手動調整：</strong>可直接拖曳調整值班順序</li>
+            <li><strong>店長的話：</strong>可輸入特別注意事項</li>
+        </ul>
+
+        <h3>操作步驟</h3>
+        <ol>
+            <li>選擇年份和月份</li>
+            <li>設定請假資料（若有）
+                <ul>
+                    <li>點選「新增請假」</li>
+                    <li>選擇請假人員</li>
+                    <li>輸入請假日期（如：14-16）</li>
+                </ul>
+            </li>
+            <li>點選「生成排班」產生值班表</li>
+            <li>若需要調整，可直接拖曳調整順序</li>
+            <li>輸入店長的話（若需要）</li>
+            <li>選擇輸出方式：
+                <ul>
+                    <li>直接列印：點選「列印排班表」</li>
+                    <li>下載PDF：點選「下載PDF」</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3>注意事項</h3>
+        <ul>
+            <li>請假日期格式：起始日-結束日（如：14-16）</li>
+            <li>列印建議使用A3橫向紙張</li>
+            <li>列印前請先預覽確認格式正確</li>
+        </ul>
+    `;
+    
+    helpContent.innerHTML = helpHTML;
+    modal.style.display = 'block';
+}
+
+// 關閉操作說明
+function closeHelp() {
+    const modal = document.getElementById('helpModal');
+    modal.style.display = 'none';
+}
+
+// 點擊視窗外關閉說明
+window.onclick = function(event) {
+    const modal = document.getElementById('helpModal');
+    if (event.target == modal) {
+        modal.style.display = 'none';
+    }
+}
+
 // 頁面載入時初始化
 window.onload = function() {
     updateMonthOptions();
