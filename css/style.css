@@ -129,26 +129,28 @@ thead tr:first-child th {
 
 /* 備註區塊樣式 */
 .notes-section {
-    margin: 20px auto;
+    margin: 15px auto;
     width: 90%;
     max-width: 1200px;
 }
 
 .notes-section h3 {
-    font-size: 24px;
+    font-size: 20px;
     color: #333;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 #motivationalNotes {
     width: 100%;
-    min-height: 120px;
-    font-size: 20px;
-    padding: 15px;
+    min-height: 80px;
+    max-height: 120px;
+    font-size: 16px;
+    padding: 10px;
     border: 2px solid #ddd;
-    border-radius: 8px;
+    border-radius: 6px;
     resize: vertical;
     font-family: "微軟正黑體", Arial, sans-serif;
+    line-height: 1.5;
 }
 
 /* 按鈕組樣式 */
@@ -163,36 +165,114 @@ thead tr:first-child th {
     font-size: 16px;
 }
 
+/* 標題樣式 */
+.main-title {
+    font-size: 36px;
+    font-weight: bold;
+    text-align: center;
+    margin: 20px 0;
+    color: #333;
+    font-family: "微軟正黑體", Arial, sans-serif;
+}
+
 /* 列印樣式 */
 @media print {
+    body {
+        padding: 0;
+        margin: 0;
+        width: 100%;
+        height: 100%;
+    }
+
     .controls, .button-group {
         display: none;
+    }
+
+    .main-title {
+        font-size: 42px;
+        margin: 10px 0;
+        text-align: center;
     }
     
     #scheduleTable {
         width: 100%;
+        height: 70vh;  /* 減少表格高度以留出空間給備註 */
+        margin: 5px auto;
         page-break-inside: avoid;
+    }
+
+    table {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        table-layout: fixed;
+    }
+    
+    th, td {
+        padding: 6px 4px;
+        font-size: 16px;
+        height: 35px;
+    }
+
+    /* 調整第一列和最後一列的寬度 */
+    th:first-child, td:first-child {
+        width: 100px;
+    }
+
+    th:last-child, td:last-child {
+        width: 80px;
+    }
+
+    /* 星期列的樣式 */
+    tr:nth-child(2) th {
+        padding: 4px;
+        font-size: 14px;
     }
     
     .notes-section {
-        page-break-before: always;
-        margin-top: 30px;
-        padding-top: 30px;
+        margin: 5px auto;
+        width: 100%;
+        max-width: none;
+        page-break-before: auto;
+        page-break-inside: avoid;
     }
 
     #motivationalNotes {
         border: none;
-        font-size: 24px;
-        padding: 20px;
-        min-height: 200px;
+        font-size: 20px;
+        padding: 5px 0;
+        min-height: auto;
+        height: 80px;
+        line-height: 1.5;
     }
-    
-    body {
-        padding: 0;
-        margin: 0;
+
+    .notes-section h3 {
+        font-size: 24px;
+        margin: 2px 0;
+        font-weight: bold;
     }
 
     @page {
-        margin: 2cm;
+        size: A3 landscape;  /* 改為A3橫向 */
+        margin: 1cm;  /* 統一邊距 */
+    }
+
+    /* 確保內容在同一頁 */
+    .main-title, #scheduleTable, .notes-section {
+        page-break-inside: avoid;
+        page-break-after: avoid;
+    }
+
+    /* 值班和請假的背景色 */
+    .duty {
+        background-color: #d4edda !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .leave {
+        background-color: #f8d7da !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 }

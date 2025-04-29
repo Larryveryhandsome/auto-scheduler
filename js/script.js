@@ -134,30 +134,26 @@ function generateSchedule() {
     const year = document.getElementById("yearSelect").value;
     const month = document.getElementById("monthSelect").value;
     const daysInMonth = new Date(year, month, 0).getDate();
-    const firstDay = new Date(year, month - 1, 1).getDay();
-    const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
     const tbody = document.getElementById("scheduleBody");
     const rows = tbody.getElementsByTagName("tr");
     const leaveEntries = document.getElementsByClassName("leave-entry");
     let leaves = [];
-    const errorMsg = document.getElementById("errorMsg");
-    errorMsg.style.display = "none";
-
-    // 重置表格與計數
+    
+    // 重置表格
     resetSchedule();
-
+    
     // 收集請假資料
     for (let entry of leaveEntries) {
         const person = entry.querySelector("select").value;
         const range = entry.querySelector("input").value;
         if (person && range) {
             if (!/^\d+-\d+$/.test(range)) {
-                errorMsg.style.display = "block";
+                alert("請輸入正確的請假日期範圍（例如：1-5）");
                 return;
             }
             const [start, end] = range.split("-").map(num => parseInt(num));
             if (start <= 0 || end > daysInMonth || start > end) {
-                errorMsg.style.display = "block";
+                alert("請假日期必須在當月範圍內");
                 return;
             }
             leaves.push({ person, start, end });
@@ -166,12 +162,11 @@ function generateSchedule() {
 
     // 標記請假
     for (let leave of leaves) {
-        for (let i = 0; i < rows.length; i++) {
-            if (rows[i].cells[0].textContent === leave.person) {
-                for (let j = leave.start; j <= leave.end; j++) {
-                    rows[i].cells[j].textContent = "假";
-                    rows[i].cells[j].className = "leave";
-                }
+        const row = Array.from(rows).find(r => r.cells[0].textContent.trim() === leave.person);
+        if (row) {
+            for (let day = leave.start; day <= leave.end; day++) {
+                row.cells[day].textContent = "假";
+                row.cells[day].className = "leave";
             }
         }
     }
@@ -183,45 +178,46 @@ function generateSchedule() {
 
         // 週日固定由林其衛值班
         if (dayOfWeek === 0) {
-            const row = Array.from(rows).find(r => r.cells[0].textContent === "林其衛");
-            if (row) {
-                row.cells[day].textContent = "值";
-                row.cells[day].className = "duty";
-                continue;
+            const linRow = Array.from(rows).find(r => r.cells[0].textContent.trim() === "林其衛");
+            if (linRow) {
+                // 檢查是否請假
+                const isOnLeave = leaves.some(leave => 
+                    leave.person === "林其衛" && day >= leave.start && day <= leave.end
+                );
+                if (!isOnLeave) {
+                    linRow.cells[day].textContent = "值";
+                    linRow.cells[day].className = "duty";
+                    continue;
+                }
             }
         }
 
         // 週一至週六正常排班
         let availablePeople = [];
         for (let i = 0; i < rows.length; i++) {
-            const person = rows[i].cells[0].textContent;
+            const person = rows[i].cells[0].textContent.trim();
+            
+            // 檢查是否請假
             const isOnLeave = leaves.some(leave => 
                 leave.person === person && day >= leave.start && day <= leave.end
             );
             
-            // 檢查是否在7天內值過班
-            let hasRecentDuty = false;
-            for (let j = Math.max(1, day - 7); j < day; j++) {
-                if (rows[i].cells[j].textContent === "值") {
-                    hasRecentDuty = true;
-                    break;
-                }
-            }
-
-            // 檢查本週值班次數（針對曾文俊）
+            // 獲取本週值班次數
+            const currentDate = new Date(year, month - 1, day);
+            const weekStart = day - currentDate.getDay();
+            const weekEnd = Math.min(daysInMonth, weekStart + 6);
             let weeklyDutyCount = 0;
-            if (person === "曾文俊") {
-                const weekStart = day - ((firstDay + day - 1) % 7);
-                const weekEnd = Math.min(daysInMonth, weekStart + 6);
-                for (let j = weekStart; j <= weekEnd; j++) {
-                    if (rows[i].cells[j].textContent === "值") {
-                        weeklyDutyCount++;
-                    }
+            
+            for (let j = weekStart; j <= weekEnd; j++) {
+                if (j > 0 && j <= daysInMonth && rows[i].cells[j] && 
+                    rows[i].cells[j].textContent === "值") {
+                    weeklyDutyCount++;
                 }
             }
 
-            if (!isOnLeave && !hasRecentDuty && 
-                (person !== "曾文俊" || weeklyDutyCount === 0)) {
+            // 檢查值班限制
+            const maxWeeklyDuty = person === "曾文俊" ? 1 : 2;
+            if (!isOnLeave && weeklyDutyCount < maxWeeklyDuty) {
                 availablePeople.push(i);
             }
         }
@@ -229,7 +225,8 @@ function generateSchedule() {
         if (availablePeople.length > 0) {
             // 選擇值班次數最少的人
             let selectedRow = availablePeople[0];
-            let minDuty = 31;
+            let minDuty = daysInMonth;
+            
             for (let i of availablePeople) {
                 let dutyCount = 0;
                 for (let j = 1; j <= daysInMonth; j++) {
@@ -245,14 +242,61 @@ function generateSchedule() {
 
             rows[selectedRow].cells[day].textContent = "值";
             rows[selectedRow].cells[day].className = "duty";
+        } else if (dayOfWeek !== 0) {
+            // 如果找不到可用人員，嘗試放寬限制（忽略本週值班次數限制）
+            for (let i = 0; i < rows.length; i++) {
+                const person = rows[i].cells[0].textContent.trim();
+                const isOnLeave = leaves.some(leave => 
+                    leave.person === person && day >= leave.start && day <= leave.end
+                );
+                
+                if (!isOnLeave && person !== "曾文俊") {  // 仍然保持曾文俊的限制
+                    availablePeople.push(i);
+                }
+            }
+
+            if (availablePeople.length > 0) {
+                // 選擇值班次數最少的人
+                let selectedRow = availablePeople[0];
+                let minDuty = daysInMonth;
+                
+                for (let i of availablePeople) {
+                    let dutyCount = 0;
+                    for (let j = 1; j <= daysInMonth; j++) {
+                        if (rows[i].cells[j].textContent === "值") {
+                            dutyCount++;
+                        }
+                    }
+                    if (dutyCount < minDuty) {
+                        minDuty = dutyCount;
+                        selectedRow = i;
+                    }
+                }
+
+                rows[selectedRow].cells[day].textContent = "值";
+                rows[selectedRow].cells[day].className = "duty";
+            } else {
+                alert(`第 ${day} 日無可用人員，請檢查排班規則！`);
+                return;
+            }
         }
     }
 
     // 更新值班總數
+    updateDutyCounts();
+}
+
+// 更新值班總數
+function updateDutyCounts() {
+    const tbody = document.getElementById("scheduleBody");
+    const rows = tbody.getElementsByTagName("tr");
+    
     for (let i = 0; i < rows.length; i++) {
         let count = 0;
-        for (let j = 1; j <= daysInMonth; j++) {
-            if (rows[i].cells[j].textContent === "值") count++;
+        for (let j = 1; j <= 31; j++) {
+            if (rows[i].cells[j] && rows[i].cells[j].textContent === "值") {
+                count++;
+            }
         }
         rows[i].cells[32].textContent = count;
     }
@@ -263,64 +307,62 @@ function initializeDragAndDrop() {
     const cells = document.querySelectorAll('#scheduleBody td:not(:first-child):not(:last-child)');
     
     cells.forEach(cell => {
-        cell.classList.add('duty-cell');
-        
-        cell.addEventListener('dragstart', handleDragStart);
-        cell.addEventListener('dragend', handleDragEnd);
-        cell.addEventListener('dragover', handleDragOver);
-        cell.addEventListener('drop', handleDrop);
         cell.setAttribute('draggable', 'true');
+        
+        cell.addEventListener('dragstart', function(e) {
+            if (this.textContent === '') return;
+            e.dataTransfer.setData('text/plain', this.textContent);
+            this.classList.add('dragging');
+        });
+
+        cell.addEventListener('dragend', function(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.duty-cell').forEach(cell => {
+                cell.classList.remove('droppable');
+            });
+        });
+
+        cell.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            if (!this.classList.contains('droppable')) {
+                this.classList.add('droppable');
+            }
+        });
+
+        cell.addEventListener('dragleave', function(e) {
+            this.classList.remove('droppable');
+        });
+
+        cell.addEventListener('drop', function(e) {
+            e.preventDefault();
+            const sourceContent = e.dataTransfer.getData('text/plain');
+            const targetContent = this.textContent;
+            const sourceCell = document.querySelector('.dragging');
+
+            // 如果是空白格子或值班格子，允許交換
+            if (sourceCell && (targetContent === '' || targetContent === '值' || sourceContent === '值')) {
+                sourceCell.textContent = targetContent;
+                this.textContent = sourceContent;
+
+                // 更新樣式
+                if (targetContent === '值') {
+                    sourceCell.className = 'duty';
+                } else {
+                    sourceCell.className = '';
+                }
+                if (sourceContent === '值') {
+                    this.className = 'duty';
+                } else {
+                    this.className = '';
+                }
+
+                // 更新值班總數
+                updateDutyCounts();
+            }
+
+            this.classList.remove('droppable');
+        });
     });
-}
-
-function handleDragStart(e) {
-    if (!e.target.textContent) return;
-    
-    e.target.classList.add('dragging');
-    e.dataTransfer.setData('text/plain', e.target.textContent);
-    e.dataTransfer.effectAllowed = 'move';
-}
-
-function handleDragEnd(e) {
-    e.target.classList.remove('dragging');
-    document.querySelectorAll('.duty-cell').forEach(cell => {
-        cell.classList.remove('droppable');
-    });
-}
-
-function handleDragOver(e) {
-    e.preventDefault();
-    e.target.classList.add('droppable');
-}
-
-function handleDrop(e) {
-    e.preventDefault();
-    const sourceContent = e.dataTransfer.getData('text/plain');
-    const targetContent = e.target.textContent;
-    
-    // 交換值班
-    if (sourceContent && e.target.classList.contains('duty-cell')) {
-        const sourceCell = document.querySelector('.dragging');
-        if (sourceCell) {
-            sourceCell.textContent = targetContent;
-            e.target.textContent = sourceContent;
-            updateDutyCounts();
-        }
-    }
-    
-    e.target.classList.remove('droppable');
-}
-
-// 更新值班次數
-function updateDutyCounts() {
-    const rows = document.getElementById('scheduleBody').getElementsByTagName('tr');
-    for (let i = 0; i < rows.length; i++) {
-        let count = 0;
-        for (let j = 1; j <= 31; j++) {
-            if (rows[i].cells[j].textContent === '值') count++;
-        }
-        rows[i].cells[32].textContent = count;
-    }
 }
 
 // 更新下載PDF功能以包含備註
@@ -348,7 +390,7 @@ function downloadPDF() {
 }
 
 // 頁面載入時初始化
-window.onload = () => {
+window.onload = function() {
     updateMonthOptions();
     initializeDragAndDrop();
 };

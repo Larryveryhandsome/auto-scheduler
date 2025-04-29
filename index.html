@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自動排班表 - 網頁版</title>
+    <title>黎明小巢值班表</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
+    <h1 class="main-title">黎明小巢值班表</h1>
+    
     <div class="controls">
-        <h2 id="tableTitle">2025 年 4 月排班表</h2>
+        <h2 id="tableTitle">2025 年 5 月排班表</h2>
         <label>年份選擇:</label>
         <select id="yearSelect" onchange="updateMonthOptions()">
             <option value="2023">2023</option>
@@ -39,12 +41,12 @@
             <div class="leave-entry">
                 <select name="leavePerson[]">
                     <option value="">選擇人員</option>
-                    <option value="B林其衛">B林其衛</option>
-                    <option value="B楊茗傑">B楊茗傑</option>
-                    <option value="B黃詩晴">B黃詩晴</option>
-                    <option value="B林緁締">B林緁締</option>
-                    <option value="B曾文俊">B曾文俊</option>
-                    <option value="A桂珍珍">A桂珍珍</option>
+                    <option value="林其衛">林其衛</option>
+                    <option value="楊茗傑">楊茗傑</option>
+                    <option value="黃詩晴">黃詩晴</option>
+                    <option value="林緁締">林緁締</option>
+                    <option value="曾文俊">曾文俊</option>
+                    <option value="桂珍珍">桂珍珍</option>
                 </select>
                 <input type="text" name="leaveRange[]" placeholder="如 14-16">
                 <button onclick="removeLeaveEntry(this)">移除</button>
@@ -85,8 +87,8 @@
     </table>
 
     <div class="notes-section">
-        <h3>激勵備註</h3>
-        <textarea id="motivationalNotes" placeholder="在這裡輸入激勵的話語..." rows="4"></textarea>
+        <h3>店長的話</h3>
+        <textarea id="motivationalNotes" placeholder="在這裡輸入店長的話..." rows="4"></textarea>
     </div>
 
     <div class="button-group">
