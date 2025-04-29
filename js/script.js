@@ -1,10 +1,16 @@
 // 定義人員資料
-const people = ["B林其衛", "B楊茗傑", "B黃詩晴", "B林緁締", "B曾文俊", "A陳慶昌", "A桂珍珍"];
-const peopleSat = ["A陳慶昌", "A桂珍珍", "B林緁締"];
+const people = ["B林其衛", "B楊茗傑", "B黃詩晴", "B林緁締", "B曾文俊", "A桂珍珍"];
+const peopleSat = ["A桂珍珍", "B林緁締"];
 const peopleSun = ["B林其衛", "B楊茗傑", "B黃詩晴"];
 const scheduleCount = {};
 const recentDuty = {};
-people.forEach(p => { scheduleCount[p] = 0; recentDuty[p] = 0; });
+const maxDutyPerWeek = {
+    "B曾文俊": 1
+};
+people.forEach(p => { 
+    scheduleCount[p] = 0; 
+    recentDuty[p] = 0; 
+});
 
 // 更新月份選項
 function updateMonthOptions() {
@@ -189,8 +195,17 @@ function generateSchedule() {
         for (let person of candidates) {
             let isOnLeave = leaves.some(leave => leave.person === person && j >= leave.start && j <= leave.end);
             let daysSinceLastDuty = j - recentDuty[person];
+            
+            // 檢查周排班限制
+            const weekNumber = Math.floor((j - 1) / 7);
+            const weeklyDutyCount = Object.entries(scheduleCount)
+                .filter(([p, count]) => p === person && count > weekNumber * maxDutyPerWeek[p])
+                .length;
+
             if (!isOnLeave && (daysSinceLastDuty >= 7 || recentDuty[person] === 0)) {
                 if (person === "B林其衛" && scheduleCount[person] < linQiWeiTarget) {
+                    validCandidates.push(person);
+                } else if (person === "B曾文俊" && weeklyDutyCount === 0) {
                     validCandidates.push(person);
                 } else if (scheduleCount[person] < targetCount + 1) {
                     validCandidates.push(person);
@@ -204,6 +219,8 @@ function generateSchedule() {
                 let isOnLeave = leaves.some(leave => leave.person === person && j >= leave.start && j <= leave.end);
                 if (!isOnLeave && person !== lastPerson) {
                     if (person === "B林其衛" && scheduleCount[person] < linQiWeiTarget) {
+                        validCandidates.push(person);
+                    } else if (person === "B曾文俊" && weeklyDutyCount === 0) {
                         validCandidates.push(person);
                     } else if (scheduleCount[person] < targetCount + 1) {
                         validCandidates.push(person);
