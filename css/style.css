@@ -176,10 +176,23 @@ thead tr:first-child th {
     
     .notes-section {
         page-break-before: always;
+        margin-top: 30px;
+        padding-top: 30px;
+    }
+
+    #motivationalNotes {
+        border: none;
+        font-size: 24px;
+        padding: 20px;
+        min-height: 200px;
     }
     
     body {
         padding: 0;
         margin: 0;
+    }
+
+    @page {
+        margin: 2cm;
     }
 }

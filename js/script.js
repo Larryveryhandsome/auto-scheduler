@@ -131,25 +131,50 @@ function resetSchedule() {
 
 // 生成排班表
 function generateSchedule() {
-    const year = parseInt(document.getElementById('year').select2('data')[0].text);
-    const month = parseInt(document.getElementById('month').select2('data')[0].text);
+    const year = document.getElementById("yearSelect").value;
+    const month = document.getElementById("monthSelect").value;
     const daysInMonth = new Date(year, month, 0).getDate();
-    const schedule = {};
-    const dutyCount = {};
-    const lastDutyDay = {};
+    const firstDay = new Date(year, month - 1, 1).getDay();
+    const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
+    const tbody = document.getElementById("scheduleBody");
+    const rows = tbody.getElementsByTagName("tr");
+    const leaveEntries = document.getElementsByClassName("leave-entry");
+    let leaves = [];
+    const errorMsg = document.getElementById("errorMsg");
+    errorMsg.style.display = "none";
 
-    // 初始化值班次數和最後值班日期
-    people.forEach(person => {
-        dutyCount[person] = 0;
-        lastDutyDay[person] = 0;
-    });
+    // 重置表格與計數
+    resetSchedule();
 
-    // 取得請假資料
-    const leaveData = {};
-    people.forEach(person => {
-        const leaveDays = document.getElementById(`leave_${person}`).value;
-        leaveData[person] = leaveDays ? leaveDays.split(',').map(day => parseInt(day.trim())) : [];
-    });
+    // 收集請假資料
+    for (let entry of leaveEntries) {
+        const person = entry.querySelector("select").value;
+        const range = entry.querySelector("input").value;
+        if (person && range) {
+            if (!/^\d+-\d+$/.test(range)) {
+                errorMsg.style.display = "block";
+                return;
+            }
+            const [start, end] = range.split("-").map(num => parseInt(num));
+            if (start <= 0 || end > daysInMonth || start > end) {
+                errorMsg.style.display = "block";
+                return;
+            }
+            leaves.push({ person, start, end });
+        }
+    }
+
+    // 標記請假
+    for (let leave of leaves) {
+        for (let i = 0; i < rows.length; i++) {
+            if (rows[i].cells[0].textContent === leave.person) {
+                for (let j = leave.start; j <= leave.end; j++) {
+                    rows[i].cells[j].textContent = "假";
+                    rows[i].cells[j].className = "leave";
+                }
+            }
+        }
+    }
 
     // 為每一天安排值班人員
     for (let day = 1; day <= daysInMonth; day++) {
@@ -158,47 +183,79 @@ function generateSchedule() {
 
         // 週日固定由林其衛值班
         if (dayOfWeek === 0) {
-            schedule[day] = "林其衛";
-            dutyCount["林其衛"]++;
-            lastDutyDay["林其衛"] = day;
-            continue;
+            const row = Array.from(rows).find(r => r.cells[0].textContent === "林其衛");
+            if (row) {
+                row.cells[day].textContent = "值";
+                row.cells[day].className = "duty";
+                continue;
+            }
         }
 
         // 週一至週六正常排班
-        let availablePeople = people.filter(person => {
-            // 檢查是否請假
-            if (leaveData[person].includes(day)) return false;
+        let availablePeople = [];
+        for (let i = 0; i < rows.length; i++) {
+            const person = rows[i].cells[0].textContent;
+            const isOnLeave = leaves.some(leave => 
+                leave.person === person && day >= leave.start && day <= leave.end
+            );
             
             // 檢查是否在7天內值過班
-            if (lastDutyDay[person] > 0 && (day - lastDutyDay[person]) < 7) return false;
-            
-            // 曾文俊每週最多值班一次
-            if (person === "曾文俊") {
-                const weekStart = day - dayOfWeek;
-                const weekEnd = weekStart + 6;
-                for (let d = weekStart; d <= Math.min(weekEnd, day); d++) {
-                    if (d > 0 && schedule[d] === "曾文俊") return false;
+            let hasRecentDuty = false;
+            for (let j = Math.max(1, day - 7); j < day; j++) {
+                if (rows[i].cells[j].textContent === "值") {
+                    hasRecentDuty = true;
+                    break;
                 }
             }
-            
-            return true;
-        });
 
-        // 按值班次數排序，優先選擇值班次數較少的人
-        availablePeople.sort((a, b) => dutyCount[a] - dutyCount[b]);
+            // 檢查本週值班次數（針對曾文俊）
+            let weeklyDutyCount = 0;
+            if (person === "曾文俊") {
+                const weekStart = day - ((firstDay + day - 1) % 7);
+                const weekEnd = Math.min(daysInMonth, weekStart + 6);
+                for (let j = weekStart; j <= weekEnd; j++) {
+                    if (rows[i].cells[j].textContent === "值") {
+                        weeklyDutyCount++;
+                    }
+                }
+            }
+
+            if (!isOnLeave && !hasRecentDuty && 
+                (person !== "曾文俊" || weeklyDutyCount === 0)) {
+                availablePeople.push(i);
+            }
+        }
 
         if (availablePeople.length > 0) {
-            const selectedPerson = availablePeople[0];
-            schedule[day] = selectedPerson;
-            dutyCount[selectedPerson]++;
-            lastDutyDay[selectedPerson] = day;
-        } else {
-            schedule[day] = "無人可值班";
+            // 選擇值班次數最少的人
+            let selectedRow = availablePeople[0];
+            let minDuty = 31;
+            for (let i of availablePeople) {
+                let dutyCount = 0;
+                for (let j = 1; j <= daysInMonth; j++) {
+                    if (rows[i].cells[j].textContent === "值") {
+                        dutyCount++;
+                    }
+                }
+                if (dutyCount < minDuty) {
+                    minDuty = dutyCount;
+                    selectedRow = i;
+                }
+            }
+
+            rows[selectedRow].cells[day].textContent = "值";
+            rows[selectedRow].cells[day].className = "duty";
         }
     }
 
-    // 更新表格
-    updateTable(schedule, year, month);
+    // 更新值班總數
+    for (let i = 0; i < rows.length; i++) {
+        let count = 0;
+        for (let j = 1; j <= daysInMonth; j++) {
+            if (rows[i].cells[j].textContent === "值") count++;
+        }
+        rows[i].cells[32].textContent = count;
+    }
 }
 
 // 初始化拖放功能
