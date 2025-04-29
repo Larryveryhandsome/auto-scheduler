@@ -1,7 +1,7 @@
 // 定義人員資料
-const people = ["B林其衛", "B楊茗傑", "B黃詩晴", "B林緁締", "B曾文俊", "A桂珍珍"];
-const peopleSat = ["A桂珍珍", "B林緁締"];
-const peopleSun = ["B林其衛", "B楊茗傑", "B黃詩晴"];
+const people = ["A林其衛", "A黃詩晴", "A楊茗傑", "B林緁締", "B曾文俊", "B桂珍珍"];
+const peopleSat = []; // 週六不排班
+const peopleSun = []; // 週日不排班
 const scheduleCount = {};
 const recentDuty = {};
 const maxDutyPerWeek = {
@@ -181,14 +181,18 @@ function generateSchedule() {
     const totalPeople = people.length;
     const baseCount = Math.floor(daysInMonth / totalPeople); // 基礎次數
     const targetCount = baseCount; // 每人目標 4-5 次
-    const linQiWeiTarget = baseCount + 1; // 林其衛目標高 1 次
-    let lastPerson = "";
 
     // 自動排班
     for (let j = 1; j <= daysInMonth; j++) {
         const dayOfWeek = (firstDay + j - 1) % 7;
         const dayWeek = weekDays[dayOfWeek];
-        const candidates = dayWeek === "六" ? peopleSat : (dayWeek === "日" ? peopleSun : people);
+        
+        // 週六日不排班
+        if (dayWeek === "六" || dayWeek === "日") {
+            continue;
+        }
+
+        const candidates = people;
 
         // 篩選有效候選人
         let validCandidates = [];
@@ -203,9 +207,7 @@ function generateSchedule() {
                 .length;
 
             if (!isOnLeave && (daysSinceLastDuty >= 7 || recentDuty[person] === 0)) {
-                if (person === "B林其衛" && scheduleCount[person] < linQiWeiTarget) {
-                    validCandidates.push(person);
-                } else if (person === "B曾文俊" && weeklyDutyCount === 0) {
+                if (person === "B曾文俊" && weeklyDutyCount === 0) {
                     validCandidates.push(person);
                 } else if (scheduleCount[person] < targetCount + 1) {
                     validCandidates.push(person);
@@ -218,9 +220,7 @@ function generateSchedule() {
             for (let person of candidates) {
                 let isOnLeave = leaves.some(leave => leave.person === person && j >= leave.start && j <= leave.end);
                 if (!isOnLeave && person !== lastPerson) {
-                    if (person === "B林其衛" && scheduleCount[person] < linQiWeiTarget) {
-                        validCandidates.push(person);
-                    } else if (person === "B曾文俊" && weeklyDutyCount === 0) {
+                    if (person === "B曾文俊" && weeklyDutyCount === 0) {
                         validCandidates.push(person);
                     } else if (scheduleCount[person] < targetCount + 1) {
                         validCandidates.push(person);
@@ -242,17 +242,13 @@ function generateSchedule() {
             return;
         }
 
-        // 選擇值班人員（優先林其衛，否則選最少次數者）
+        // 選擇值班人員（選最少次數者）
         let selectedPerson = "";
-        if (validCandidates.includes("B林其衛") && scheduleCount["B林其衛"] < linQiWeiTarget) {
-            selectedPerson = "B林其衛";
-        } else {
-            let minCount = Infinity;
-            for (let person of validCandidates) {
-                if (scheduleCount[person] < minCount) {
-                    minCount = scheduleCount[person];
-                    selectedPerson = person;
-                }
+        let minCount = Infinity;
+        for (let person of validCandidates) {
+            if (scheduleCount[person] < minCount) {
+                minCount = scheduleCount[person];
+                selectedPerson = person;
             }
         }
 
