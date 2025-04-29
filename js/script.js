@@ -143,6 +143,7 @@ function generateSchedule() {
     let leaves = [];
     const errorMsg = document.getElementById("errorMsg");
     errorMsg.style.display = "none";
+    let lastPerson = "";
 
     // 重置表格與計數
     resetSchedule();
@@ -178,9 +179,12 @@ function generateSchedule() {
     }
 
     // 目標值班次數
-    const totalPeople = people.length;
-    const baseCount = Math.floor(daysInMonth / totalPeople); // 基礎次數
-    const targetCount = baseCount; // 每人目標 4-5 次
+    const workingDays = Array.from({length: daysInMonth}, (_, i) => {
+        const day = (firstDay + i) % 7;
+        return day !== 0 && day !== 6; // 排除週六日
+    }).filter(Boolean).length;
+    
+    const targetCount = Math.ceil(workingDays / people.length);
 
     // 自動排班
     for (let j = 1; j <= daysInMonth; j++) {
@@ -192,24 +196,26 @@ function generateSchedule() {
             continue;
         }
 
-        const candidates = people;
-
         // 篩選有效候選人
         let validCandidates = [];
-        for (let person of candidates) {
+        for (let person of people) {
             let isOnLeave = leaves.some(leave => leave.person === person && j >= leave.start && j <= leave.end);
             let daysSinceLastDuty = j - recentDuty[person];
             
             // 檢查周排班限制
-            const weekNumber = Math.floor((j - 1) / 7);
-            const weeklyDutyCount = Object.entries(scheduleCount)
-                .filter(([p, count]) => p === person && count > weekNumber * maxDutyPerWeek[p])
-                .length;
+            const weekStart = j - ((firstDay + j - 1) % 7);
+            const weekEnd = weekStart + 6;
+            const weeklyDutyCount = Array.from({length: 7}, (_, i) => weekStart + i)
+                .filter(day => day >= 1 && day <= daysInMonth)
+                .filter(day => {
+                    const row = Array.from(rows).find(r => r.cells[0].textContent === person);
+                    return row && row.cells[day].textContent === "值";
+                }).length;
 
-            if (!isOnLeave && (daysSinceLastDuty >= 7 || recentDuty[person] === 0)) {
-                if (person === "B曾文俊" && weeklyDutyCount === 0) {
-                    validCandidates.push(person);
-                } else if (scheduleCount[person] < targetCount + 1) {
+            const isWithinWeeklyLimit = person === "B曾文俊" ? weeklyDutyCount < 1 : true;
+
+            if (!isOnLeave && (daysSinceLastDuty >= 7 || recentDuty[person] === 0) && isWithinWeeklyLimit) {
+                if (scheduleCount[person] < targetCount) {
                     validCandidates.push(person);
                 }
             }
@@ -217,32 +223,31 @@ function generateSchedule() {
 
         // 若無人選，放寬間隔限制
         if (!validCandidates.length) {
-            for (let person of candidates) {
+            for (let person of people) {
                 let isOnLeave = leaves.some(leave => leave.person === person && j >= leave.start && j <= leave.end);
-                if (!isOnLeave && person !== lastPerson) {
-                    if (person === "B曾文俊" && weeklyDutyCount === 0) {
-                        validCandidates.push(person);
-                    } else if (scheduleCount[person] < targetCount + 1) {
-                        validCandidates.push(person);
-                    }
+                const weekStart = j - ((firstDay + j - 1) % 7);
+                const weekEnd = weekStart + 6;
+                const weeklyDutyCount = Array.from({length: 7}, (_, i) => weekStart + i)
+                    .filter(day => day >= 1 && day <= daysInMonth)
+                    .filter(day => {
+                        const row = Array.from(rows).find(r => r.cells[0].textContent === person);
+                        return row && row.cells[day].textContent === "值";
+                    }).length;
+
+                const isWithinWeeklyLimit = person === "B曾文俊" ? weeklyDutyCount < 1 : true;
+
+                if (!isOnLeave && person !== lastPerson && isWithinWeeklyLimit) {
+                    validCandidates.push(person);
                 }
             }
         }
 
-        // 若仍無人選，允許連續值班
         if (!validCandidates.length) {
-            for (let person of candidates) {
-                let isOnLeave = leaves.some(leave => leave.person === person && j >= leave.start && j <= leave.end);
-                if (!isOnLeave) validCandidates.push(person);
-            }
-        }
-
-        if (!validCandidates.length) {
-            alert(`第 ${j} 天無可用人員，請檢查請假設定！`);
+            alert(`第 ${j} 天無可用人員，請檢查排班規則！`);
             return;
         }
 
-        // 選擇值班人員（選最少次數者）
+        // 選擇值班人員
         let selectedPerson = "";
         let minCount = Infinity;
         for (let person of validCandidates) {
@@ -254,14 +259,15 @@ function generateSchedule() {
 
         // 寫入排班結果
         for (let i = 0; i < rows.length; i++) {
-            if (rows[i].cells[0].textContent === selectedPerson && rows[i].cells[j].textContent !== "假") {
+            if (rows[i].cells[0].textContent === selectedPerson) {
                 rows[i].cells[j].textContent = "值";
                 rows[i].cells[j].className = "duty";
                 scheduleCount[selectedPerson]++;
                 recentDuty[selectedPerson] = j;
+                lastPerson = selectedPerson;
+                break;
             }
         }
-        lastPerson = selectedPerson;
     }
 
     // 更新總數
