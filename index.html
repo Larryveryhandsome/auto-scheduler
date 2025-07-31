@@ -64,6 +64,13 @@
                 <button onclick="removeLeaveEntry(this)">移除</button>
             </div>
         </div>
+        <div id="staffControls">
+            <h3>人員管理:</h3>
+            <input type="text" id="newPersonName" placeholder="輸入人員姓名">
+            <button onclick="addPerson()">新增人員</button>
+            <select id="removePersonSelect"></select>
+            <button onclick="removePerson()">移除人員</button>
+        </div>
         <button onclick="addLeaveEntry()">新增請假</button>
         <button onclick="generateSchedule()">生成排班</button>
         <button onclick="downloadPDF()">下載 PDF</button>
