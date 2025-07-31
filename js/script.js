@@ -108,6 +108,75 @@ function removeLeaveEntry(button) {
     button.parentElement.remove();
 }
 
+// 更新人員相關下拉選單
+function renderPersonSelects() {
+    // 更新請假選單
+    document.querySelectorAll('select[name="leavePerson[]"]').forEach(select => {
+        const current = select.value;
+        select.innerHTML = '<option value="">選擇人員</option>' +
+            people.map(p => `<option value="${p}">${p}</option>`).join('');
+        if (current && people.includes(current)) select.value = current;
+    });
+
+    // 更新移除人員選單
+    const removeSelect = document.getElementById('removePersonSelect');
+    if (removeSelect) {
+        removeSelect.innerHTML = people.map(p => `<option value="${p}">${p}</option>`).join('');
+    }
+}
+
+// 新增人員
+function addPerson() {
+    const nameInput = document.getElementById('newPersonName');
+    const name = nameInput.value.trim();
+    if (!name) {
+        alert('請輸入姓名');
+        return;
+    }
+    if (people.includes(name)) {
+        alert('人員已存在');
+        return;
+    }
+    people.push(name);
+    scheduleCount[name] = 0;
+    recentDuty[name] = 0;
+
+    const tbody = document.getElementById('scheduleBody');
+    const row = document.createElement('tr');
+    let cells = `<td>${name}</td>`;
+    for (let j = 1; j <= 31; j++) {
+        cells += '<td></td>';
+    }
+    cells += '<td>0</td>';
+    row.innerHTML = cells;
+    tbody.appendChild(row);
+
+    nameInput.value = '';
+    renderPersonSelects();
+    initializeDragAndDrop();
+}
+
+// 移除人員
+function removePerson() {
+    const select = document.getElementById('removePersonSelect');
+    const name = select.value;
+    if (!name) return;
+    if (!confirm(`確定移除 ${name} 嗎？`)) return;
+
+    const tbody = document.getElementById('scheduleBody');
+    Array.from(tbody.rows).forEach(row => {
+        if (row.cells[0].textContent.trim() === name) {
+            row.remove();
+        }
+    });
+
+    people.splice(people.indexOf(name), 1);
+    delete scheduleCount[name];
+    delete recentDuty[name];
+
+    renderPersonSelects();
+}
+
 // 重置排班表
 function resetSchedule() {
     const tbody = document.getElementById("scheduleBody");
@@ -127,6 +196,7 @@ function resetSchedule() {
     firstEntry.querySelector("input").value = "";
     Object.keys(scheduleCount).forEach(p => scheduleCount[p] = 0);
     Object.keys(recentDuty).forEach(p => recentDuty[p] = 0);
+    renderPersonSelects();
 }
 
 // 生成排班表
@@ -478,4 +548,5 @@ window.onclick = function(event) {
 window.onload = function() {
     updateMonthOptions();
     initializeDragAndDrop();
+    renderPersonSelects();
 };
